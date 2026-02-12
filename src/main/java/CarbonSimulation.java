@@ -2,7 +2,7 @@ import org.cloudsimplus.brokers.DatacenterBroker;
 import org.cloudsimplus.brokers.DatacenterBrokerSimple;
 import org.cloudsimplus.cloudlets.Cloudlet;
 import org.cloudsimplus.cloudlets.CloudletSimple;
-import org.cloudsimplus.core.CloudSim;
+import org.cloudsimplus.core.CloudSimPlus;
 import org.cloudsimplus.datacenters.Datacenter;
 import org.cloudsimplus.datacenters.DatacenterSimple;
 import org.cloudsimplus.hosts.Host;
@@ -17,23 +17,32 @@ import org.cloudsimplus.vms.Vm;
 import org.cloudsimplus.vms.VmSimple;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class CarbonSimulation {
 
     public static void main(String[] args) {
 
         // Initialize simulation
-        CloudSim simulation = new CloudSim(1);
+        CloudSimPlus simulation = new CloudSimPlus();
 
         // Broker
         DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
 
+        List<Host> hosts = createHosts(50);
+        Map<Host, String> hostRegionMap = createHostRegionMap(hosts);
+
         // Carbon-aware policy
-        CarbonVmAllocationPolicy policy = new CarbonVmAllocationPolicy();
+        CarbonIntensityProvider carbonIntensityProvider = new RealTimeCarbonIntensityProvider();
+        CarbonVmAllocationPolicy policy =
+                new CarbonVmAllocationPolicy(carbonIntensityProvider, hostRegionMap);
 
         // Datacenter
-        Datacenter datacenter = new DatacenterSimple(simulation, createHosts(50), policy);
+        Datacenter datacenter = new DatacenterSimple(simulation, hosts, policy);
 
         // Create VMs and Cloudlets
         List<Vm> vmList = createVMs(100);
@@ -114,5 +123,39 @@ public class CarbonSimulation {
         }
 
         return cloudletList;
+    }
+
+    private static Map<Host, String> createHostRegionMap(final List<Host> hostList) {
+        final List<String> zones = resolveZones();
+        final Map<Host, String> hostRegionMap = new IdentityHashMap<>();
+
+        for (int i = 0; i < hostList.size(); i++) {
+            hostRegionMap.put(hostList.get(i), zones.get(i % zones.size()));
+        }
+
+        return hostRegionMap;
+    }
+
+    private static List<String> resolveZones() {
+        final String configuredZones = System.getenv("CARBON_ZONES");
+        if (configuredZones == null || configuredZones.isBlank()) {
+            return List.of(
+                    "US-CAL-CISO",
+                    "US-MIDA-PJM",
+                    "US-TEX-ERCO",
+                    "US-NY-NYIS"
+            );
+        }
+
+        final List<String> parsedZones = Arrays.stream(configuredZones.split(","))
+                .map(String::trim)
+                .filter(zone -> !zone.isEmpty())
+                .collect(Collectors.toList());
+
+        if (parsedZones.isEmpty()) {
+            return List.of("US-CAL-CISO");
+        }
+
+        return parsedZones;
     }
 }

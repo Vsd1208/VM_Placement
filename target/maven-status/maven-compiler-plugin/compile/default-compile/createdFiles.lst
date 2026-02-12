@@ -1,0 +1,5 @@
+CarbonSimulation.class
+CarbonVmAllocationPolicy.class
+ResultsLogger.class
+FirstFitVmAllocationPolicy.class
+EnergyVmAllocationPolicy.class
