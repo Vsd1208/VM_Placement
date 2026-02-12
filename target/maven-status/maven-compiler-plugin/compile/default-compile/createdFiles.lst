@@ -1,5 +1,11 @@
 CarbonSimulation.class
 CarbonVmAllocationPolicy.class
+ResultsLogger$HostEnergyAndCarbon.class
+ResultsLogger$PolicyStats.class
 ResultsLogger.class
+CarbonIntensityProvider.class
+RealTimeCarbonIntensityProvider.class
+RealTimeCarbonIntensityProvider$CacheEntry.class
 FirstFitVmAllocationPolicy.class
+ResultsLogger$EvaluationMetrics.class
 EnergyVmAllocationPolicy.class

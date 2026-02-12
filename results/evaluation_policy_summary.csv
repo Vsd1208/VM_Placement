@@ -1,0 +1,4 @@
+policy,runs,completion_mean_pct,completion_std_pct,makespan_mean_s,makespan_std_s,energy_mean_kwh,energy_std_kwh,carbon_mean_kg,carbon_std_kg
+FIRST_FIT,3,100.0000,0.0000,14.3957,0.0000,0.042435,0.000000,0.015828,0.000000
+ENERGY_AWARE,3,100.0000,0.0000,14.3957,0.0000,0.024940,0.000000,0.009258,0.000000
+CIAVMP,3,100.0000,0.0000,14.3957,0.0000,0.024940,0.000000,0.006923,0.000000

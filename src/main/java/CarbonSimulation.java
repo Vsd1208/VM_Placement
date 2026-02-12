@@ -1,9 +1,9 @@
 import org.cloudsimplus.brokers.DatacenterBroker;
 import org.cloudsimplus.brokers.DatacenterBrokerSimple;
+import org.cloudsimplus.allocationpolicies.VmAllocationPolicy;
 import org.cloudsimplus.cloudlets.Cloudlet;
 import org.cloudsimplus.cloudlets.CloudletSimple;
 import org.cloudsimplus.core.CloudSimPlus;
-import org.cloudsimplus.datacenters.Datacenter;
 import org.cloudsimplus.datacenters.DatacenterSimple;
 import org.cloudsimplus.hosts.Host;
 import org.cloudsimplus.hosts.HostSimple;
@@ -16,6 +16,7 @@ import org.cloudsimplus.utilizationmodels.UtilizationModelDynamic;
 import org.cloudsimplus.vms.Vm;
 import org.cloudsimplus.vms.VmSimple;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
@@ -26,44 +27,135 @@ import java.util.stream.Collectors;
 public class CarbonSimulation {
 
     public static void main(String[] args) {
+        final int runs = getIntEnv("EVAL_RUNS", 5);
+        final int hostCount = getIntEnv("HOST_COUNT", 50);
+        final int vmCount = getIntEnv("VM_COUNT", 100);
+        final int cloudletCount = getIntEnv("CLOUDLET_COUNT", 100);
 
-        // Initialize simulation
-        CloudSimPlus simulation = new CloudSimPlus();
+        final List<String> zones = resolveZones();
+        final CarbonIntensityProvider carbonIntensityProvider = new RealTimeCarbonIntensityProvider();
+        final List<ResultsLogger.EvaluationMetrics> allMetrics = new ArrayList<>();
 
-        // Broker
-        DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
+        for (int run = 1; run <= runs; run++) {
+            allMetrics.add(runSingleExperiment(
+                    run,
+                    "FIRST_FIT",
+                    hostCount,
+                    vmCount,
+                    cloudletCount,
+                    zones,
+                    carbonIntensityProvider
+            ));
+            allMetrics.add(runSingleExperiment(
+                    run,
+                    "ENERGY_AWARE",
+                    hostCount,
+                    vmCount,
+                    cloudletCount,
+                    zones,
+                    carbonIntensityProvider
+            ));
+            allMetrics.add(runSingleExperiment(
+                    run,
+                    "CIAVMP",
+                    hostCount,
+                    vmCount,
+                    cloudletCount,
+                    zones,
+                    carbonIntensityProvider
+            ));
+        }
 
-        List<Host> hosts = createHosts(50);
-        Map<Host, String> hostRegionMap = createHostRegionMap(hosts);
+        ResultsLogger.writeResearchOutputs(
+                allMetrics,
+                runs,
+                hostCount,
+                vmCount,
+                cloudletCount
+        );
 
-        // Carbon-aware policy
-        CarbonIntensityProvider carbonIntensityProvider = new RealTimeCarbonIntensityProvider();
-        CarbonVmAllocationPolicy policy =
-                new CarbonVmAllocationPolicy(carbonIntensityProvider, hostRegionMap);
+        System.out.println("Raw metrics written to: "
+                + Path.of("results", "evaluation_raw_metrics.csv").toAbsolutePath());
+        System.out.println("Policy summary written to: "
+                + Path.of("results", "evaluation_policy_summary.csv").toAbsolutePath());
+        System.out.println("Research report written to: "
+                + Path.of("results", "evaluation_research_summary.txt").toAbsolutePath());
+    }
 
-        // Datacenter
-        Datacenter datacenter = new DatacenterSimple(simulation, hosts, policy);
+    private static ResultsLogger.EvaluationMetrics runSingleExperiment(
+            final int runId,
+            final String policyName,
+            final int hostCount,
+            final int vmCount,
+            final int cloudletCount,
+            final List<String> zones,
+            final CarbonIntensityProvider carbonIntensityProvider) {
 
-        // Create VMs and Cloudlets
-        List<Vm> vmList = createVMs(100);
-        List<Cloudlet> cloudletList = createCloudlets(100);
+        final CloudSimPlus simulation = new CloudSimPlus();
+        final DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
+
+        final List<Host> hosts = createHosts(hostCount);
+        final Map<Host, String> hostRegionMap = createHostRegionMap(hosts, zones);
+        final VmAllocationPolicy policy = createPolicy(
+                policyName,
+                carbonIntensityProvider,
+                hostRegionMap
+        );
+
+        new DatacenterSimple(simulation, hosts, policy);
+
+        final List<Vm> vmList = createVMs(vmCount);
+        final List<Cloudlet> cloudletList = createCloudlets(cloudletCount);
 
         broker.submitVmList(vmList);
         broker.submitCloudletList(cloudletList);
+        bindCloudletsToVms(broker, cloudletList, vmList);
 
-        // Bind Cloudlets to VMs
+        simulation.start();
+        final long finishedCloudlets = broker.getCloudletFinishedList().size();
+        System.out.printf(
+                "Run %d | %s | finished cloudlets: %d%n",
+                runId,
+                policyName,
+                finishedCloudlets
+        );
+
+        return ResultsLogger.buildMetrics(
+                runId,
+                policyName,
+                cloudletList,
+                hosts,
+                hostRegionMap,
+                carbonIntensityProvider
+        );
+    }
+
+    private static VmAllocationPolicy createPolicy(
+            final String policyName,
+            final CarbonIntensityProvider carbonIntensityProvider,
+            final Map<Host, String> hostRegionMap) {
+        switch (policyName) {
+            case "FIRST_FIT":
+                return new FirstFitVmAllocationPolicy();
+            case "ENERGY_AWARE":
+                return new EnergyVmAllocationPolicy();
+            case "CIAVMP":
+                return new CarbonVmAllocationPolicy(carbonIntensityProvider, hostRegionMap);
+            default:
+                throw new IllegalArgumentException("Unsupported policy: " + policyName);
+        }
+    }
+
+    private static void bindCloudletsToVms(
+            final DatacenterBroker broker,
+            final List<Cloudlet> cloudletList,
+            final List<Vm> vmList) {
         for (int i = 0; i < cloudletList.size(); i++) {
             broker.bindCloudletToVm(
                     cloudletList.get(i),
-                    vmList.get(i % vmList.size()));
+                    vmList.get(i % vmList.size())
+            );
         }
-
-        // Start simulation
-        simulation.start();
-
-        System.out.println("Simulation completed.");
-        System.out.println("Finished Cloudlets: "
-                + broker.getCloudletFinishedList().size());
     }
 
     private static List<Host> createHosts(int number) {
@@ -125,8 +217,9 @@ public class CarbonSimulation {
         return cloudletList;
     }
 
-    private static Map<Host, String> createHostRegionMap(final List<Host> hostList) {
-        final List<String> zones = resolveZones();
+    private static Map<Host, String> createHostRegionMap(
+            final List<Host> hostList,
+            final List<String> zones) {
         final Map<Host, String> hostRegionMap = new IdentityHashMap<>();
 
         for (int i = 0; i < hostList.size(); i++) {
@@ -157,5 +250,19 @@ public class CarbonSimulation {
         }
 
         return parsedZones;
+    }
+
+    private static int getIntEnv(final String envVar, final int defaultValue) {
+        final String value = System.getenv(envVar);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+
+        try {
+            final int parsed = Integer.parseInt(value.trim());
+            return parsed > 0 ? parsed : defaultValue;
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
     }
 }

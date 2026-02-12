@@ -1,0 +1,10 @@
+Evaluation Metrics
+===================
+Policy: CIAVMP
+Total Cloudlets: 100
+Finished Cloudlets: 100
+Completion Rate: 100.00%
+Average CPU Time: 14.30 s
+Makespan: 14.40 s
+Estimated Energy: 0.0424 kWh
+Estimated Carbon Emissions: 0.0212 kg CO2

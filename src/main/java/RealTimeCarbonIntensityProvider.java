@@ -21,6 +21,7 @@ public class RealTimeCarbonIntensityProvider implements CarbonIntensityProvider 
     private final String endpointTemplate;
     private final long cacheTtlMillis;
     private final double fallbackIntensity;
+    private final Map<String, Double> fallbackByRegion;
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
     public RealTimeCarbonIntensityProvider() {
@@ -46,6 +47,12 @@ public class RealTimeCarbonIntensityProvider implements CarbonIntensityProvider 
         this.endpointTemplate = endpointTemplate;
         this.cacheTtlMillis = cacheTtlMillis;
         this.fallbackIntensity = fallbackIntensity;
+        this.fallbackByRegion = Map.of(
+                "US-CAL-CISO", 340.0,
+                "US-MIDA-PJM", 430.0,
+                "US-TEX-ERCO", 510.0,
+                "US-NY-NYIS", 210.0
+        );
     }
 
     @Override
@@ -64,7 +71,7 @@ public class RealTimeCarbonIntensityProvider implements CarbonIntensityProvider 
 
     private double fetchIntensity(final String region) {
         if (apiKey == null || apiKey.isBlank()) {
-            return fallbackIntensity;
+            return fallbackByRegion.getOrDefault(region, fallbackIntensity);
         }
 
         final String encodedRegion = URLEncoder.encode(region, StandardCharsets.UTF_8);
@@ -95,7 +102,7 @@ public class RealTimeCarbonIntensityProvider implements CarbonIntensityProvider 
             }
         }
 
-        return fallbackIntensity;
+        return fallbackByRegion.getOrDefault(region, fallbackIntensity);
     }
 
     private String normalizeRegion(final String region) {

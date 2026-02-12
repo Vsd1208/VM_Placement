@@ -1,0 +1,2 @@
+timestamp,policy,total_cloudlets,finished_cloudlets,completion_rate_pct,avg_cpu_time_s,makespan_s,energy_kwh,carbon_kg_co2
+2026-02-12T09:03:53.289827900Z,CIAVMP,100,100,100.00,14.30,14.40,0.0424,0.0212

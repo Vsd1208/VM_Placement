@@ -1,0 +1,18 @@
+Research Evaluation Summary
+===========================
+Generated At: 2026-02-12T09:08:50.653498300Z
+Runs Per Policy: 3
+Hosts: 50
+VMs: 100
+Cloudlets: 100
+
+Policy Statistics (mean +- std)
+--------------------------------
+FIRST_FIT | completion: 100.00 +- 0.00 % | makespan: 14.40 +- 0.00 s | energy: 0.0424 +- 0.0000 kWh | carbon: 0.0158 +- 0.0000 kg CO2
+ENERGY_AWARE | completion: 100.00 +- 0.00 % | makespan: 14.40 +- 0.00 s | energy: 0.0249 +- 0.0000 kWh | carbon: 0.0093 +- 0.0000 kg CO2
+CIAVMP | completion: 100.00 +- 0.00 % | makespan: 14.40 +- 0.00 s | energy: 0.0249 +- 0.0000 kWh | carbon: 0.0069 +- 0.0000 kg CO2
+
+CIAVMP Relative Improvements
+-----------------------------
+vs FIRST_FIT -> energy: 41.23%, carbon: 56.26%, makespan: 0.00%
+vs ENERGY_AWARE -> energy: 0.00%, carbon: 25.22%, makespan: 0.00%
